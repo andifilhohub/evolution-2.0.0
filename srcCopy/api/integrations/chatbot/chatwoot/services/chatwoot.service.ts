@@ -50,7 +50,7 @@ export class ChatwootService {
     private readonly configService: ConfigService,
     private readonly prismaRepository: PrismaRepository,
     private readonly cache: CacheService,
-  ) { }
+  ) {}
 
   private pgClient = postgresClient.getChatwootConnection();
 
@@ -232,7 +232,7 @@ export class ChatwootService {
         '123456',
         inboxId,
         false,
-        organization ? organization : 'QRCODE-WhatsApp',
+        organization ? organization : 'EvolutionAPI',
         logo ? logo : 'https://evolution-api.com/files/evolution-api-favicon.png',
       )) as any);
 
@@ -651,8 +651,8 @@ export class ChatwootService {
             contact.name === chatId ||
             (`+${chatId}`.startsWith('+55')
               ? this.getNumbers(`+${chatId}`).some(
-                (v) => contact.name === v || contact.name === v.substring(3) || contact.name === v.substring(1),
-              )
+                  (v) => contact.name === v || contact.name === v.substring(3) || contact.name === v.substring(1),
+                )
               : false);
 
           this.logger.verbose(`Picture needs update: ${pictureNeedsUpdate}`);
@@ -1175,7 +1175,6 @@ export class ChatwootService {
   }
 
   public async receiveWebhook(instance: InstanceDto, body: any) {
-    console.log(body);
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -1201,49 +1200,7 @@ export class ChatwootService {
         body.private ||
         (body.event === 'message_updated' && !body.content_attributes?.deleted)
       ) {
-        // this.logger.debug(`Entrou no IF de verificação. body: ${JSON.stringify(body)}`);
-
-
-        const waInstance = this.waMonitor.waInstances[instance.instanceName];
-
-        if (body.event === 'message_updated' && body.content_attributes?.edited) {
-          const message = await this.prismaRepository.message.findFirst({
-            where: {
-              chatwootMessageId: body.id,
-              instanceId: instance.instanceId,
-            },
-          });
-
-          if (message) {
-            const key = message.key as {
-              id: string;
-              remoteJid: string;
-              fromMe: boolean;
-              participant: string;
-            };
-            this.logger.debug(`Entrou no IF de verificação (edit). body: ${JSON.stringify(body)}`);
-            await waInstance?.client.sendMessage(key.remoteJid, { text: body.content_attributes.newContent, edit: key });
-
-            await this.prismaRepository.message.updateMany({
-              where: {
-                instanceId: instance.instanceId,
-                chatwootMessageId: body.id,
-              },
-              data:
-              {
-                message: body.content_attributes.newContent, // Novo conteúdo da mensagem
-              },
-
-            });
-          }
-
-
-          return { message: 'bot' };
-        }
-        else {
-          this.logger.debug(`Entrou no IF de verificação (edit). mas nao era mensagem editada`);
-          return { message: 'bot' }
-        }
+        return { message: 'bot' };
       }
 
       const chatId =
@@ -1251,10 +1208,10 @@ export class ChatwootService {
       // Chatwoot to Whatsapp
       const messageReceived = body.content
         ? body.content
-          .replaceAll(/(?<!\*)\*((?!\s)([^\n*]+?)(?<!\s))\*(?!\*)/g, '_$1_') // Substitui * por _
-          .replaceAll(/\*{2}((?!\s)([^\n*]+?)(?<!\s))\*{2}/g, '*$1*') // Substitui ** por *
-          .replaceAll(/~{2}((?!\s)([^\n*]+?)(?<!\s))~{2}/g, '~$1~') // Substitui ~~ por ~
-          .replaceAll(/(?<!`)`((?!\s)([^`*]+?)(?<!\s))`(?!`)/g, '```$1```') // Substitui ` por ```
+            .replaceAll(/(?<!\*)\*((?!\s)([^\n*]+?)(?<!\s))\*(?!\*)/g, '_$1_') // Substitui * por _
+            .replaceAll(/\*{2}((?!\s)([^\n*]+?)(?<!\s))\*{2}/g, '*$1*') // Substitui ** por *
+            .replaceAll(/~{2}((?!\s)([^\n*]+?)(?<!\s))~{2}/g, '~$1~') // Substitui ~~ por ~
+            .replaceAll(/(?<!`)`((?!\s)([^`*]+?)(?<!\s))`(?!`)/g, '```$1```') // Substitui ` por ```
         : body.content;
 
       const senderName = body?.conversation?.messages[0]?.sender?.available_name || body?.sender?.name;
@@ -1275,7 +1232,7 @@ export class ChatwootService {
             fromMe: boolean;
             participant: string;
           };
-          this.logger.debug(`Entrou no IF de verificação. body: ${JSON.stringify(body)}`);
+
           await waInstance?.client.sendMessage(key.remoteJid, { delete: key });
 
           await this.prismaRepository.message.deleteMany({
@@ -1585,40 +1542,25 @@ export class ChatwootService {
   private async getReplyToIds(
     msg: any,
     instance: InstanceDto,
-  ): Promise<{
-    in_reply_to: string | null;
-    in_reply_to_external_id: string | null;
-    quotedMessage: any | null;
-  }> {
-    let inReplyTo: string | null = null;
-    let inReplyToExternalId: string | null = null;
-    let quotedMessage: any | null = null;
+  ): Promise<{ in_reply_to: string; in_reply_to_external_id: string }> {
+    let inReplyTo = null;
+    let inReplyToExternalId = null;
 
-    // Tenta pegar o stanzaId da mensagem original (resposta)
-    inReplyToExternalId = msg.message?.extendedTextMessage?.contextInfo?.stanzaId
-      ?? msg.contextInfo?.stanzaId
-      ?? null;
-
-    // Tenta pegar o quotedMessage (a mensagem citada, com mídia, etc.)
-    quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage
-      ?? msg.contextInfo?.quotedMessage
-      ?? null;
-
-    // Se tiver stanzaId, tenta buscar o chatwootMessageId correspondente
-    if (inReplyToExternalId) {
-      const message = await this.getMessageByKeyId(instance, inReplyToExternalId);
-      if (message?.chatwootMessageId) {
-        inReplyTo = message.chatwootMessageId.toString();
+    if (msg) {
+      inReplyToExternalId = msg.message?.extendedTextMessage?.contextInfo?.stanzaId ?? msg.contextInfo?.stanzaId;
+      if (inReplyToExternalId) {
+        const message = await this.getMessageByKeyId(instance, inReplyToExternalId);
+        if (message?.chatwootMessageId) {
+          inReplyTo = message.chatwootMessageId;
+        }
       }
     }
 
     return {
       in_reply_to: inReplyTo,
       in_reply_to_external_id: inReplyToExternalId,
-      quotedMessage,
     };
   }
-
 
   private async getQuotedMessage(msg: any, instance: InstanceDto): Promise<Quoted> {
     if (msg?.content_attributes?.in_reply_to) {
@@ -1951,9 +1893,9 @@ export class ChatwootService {
         const originalMessage = await this.getConversationMessage(body.message);
         const bodyMessage = originalMessage
           ? originalMessage
-            .replaceAll(/\*((?!\s)([^\n*]+?)(?<!\s))\*/g, '**$1**')
-            .replaceAll(/_((?!\s)([^\n_]+?)(?<!\s))_/g, '*$1*')
-            .replaceAll(/~((?!\s)([^\n~]+?)(?<!\s))~/g, '~~$1~~')
+              .replaceAll(/\*((?!\s)([^\n*]+?)(?<!\s))\*/g, '**$1**')
+              .replaceAll(/_((?!\s)([^\n_]+?)(?<!\s))_/g, '*$1*')
+              .replaceAll(/~((?!\s)([^\n~]+?)(?<!\s))~/g, '~~$1~~')
           : originalMessage;
 
         if (bodyMessage && bodyMessage.includes('Por favor, classifique esta conversa, http')) {
@@ -1998,7 +1940,6 @@ export class ChatwootService {
         const messageType = body.key.fromMe ? 'outgoing' : 'incoming';
 
         if (isMedia) {
-          this.logger.debug(`aqui nos temos o body: ${JSON.stringify(body)}`);
           const downloadBase64 = await waInstance?.getBase64FromMediaMessage({
             message: {
               ...body,
@@ -2023,7 +1964,7 @@ export class ChatwootService {
           const fileData = Buffer.from(downloadBase64.base64, 'base64');
 
           const fileStream = new Readable();
-          fileStream._read = () => { };
+          fileStream._read = () => {};
           fileStream.push(fileData);
           fileStream.push(null);
 
@@ -2037,7 +1978,7 @@ export class ChatwootService {
             } else {
               content = `${bodyMessage}`;
             }
-            this.logger.debug(`Entrou no IF de verificação. body: ${JSON.stringify(fileStream)}`)
+
             const send = await this.sendData(
               getConversation,
               fileStream,
@@ -2124,7 +2065,7 @@ export class ChatwootService {
           const processedBuffer = await img.getBufferAsync(Jimp.MIME_PNG);
 
           const fileStream = new Readable();
-          fileStream._read = () => { }; // _read is required but you can noop it
+          fileStream._read = () => {}; // _read is required but you can noop it
           fileStream.push(processedBuffer);
           fileStream.push(null);
 
@@ -2239,8 +2180,9 @@ export class ChatwootService {
       }
 
       if (event === 'messages.edit') {
-        const editedText = `${body?.editedMessage?.conversation || body?.editedMessage?.extendedTextMessage?.text
-          }\n\n_\`${i18next.t('cw.message.edited')}.\`_`;
+        const editedText = `${
+          body?.editedMessage?.conversation || body?.editedMessage?.extendedTextMessage?.text
+        }\n\n_\`${i18next.t('cw.message.edited')}.\`_`;
         const message = await this.getMessageByKeyId(instance, body?.key?.id);
         const key = message.key as {
           id: string;
@@ -2349,7 +2291,7 @@ export class ChatwootService {
           const fileData = Buffer.from(body?.qrcode.base64.replace('data:image/png;base64,', ''), 'base64');
 
           const fileStream = new Readable();
-          fileStream._read = () => { };
+          fileStream._read = () => {};
           fileStream.push(fileData);
           fileStream.push(null);
 

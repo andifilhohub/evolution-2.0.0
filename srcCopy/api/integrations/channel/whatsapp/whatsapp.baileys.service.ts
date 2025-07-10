@@ -270,7 +270,7 @@ export class BaileysStartupService extends ChannelStartupService {
   public async getProfileStatus() {
     const status = await this.client.fetchStatus(this.instance.wuid);
 
-    return status?.[0]?.status;
+    return status?.status;
   }
 
   public get profilePictureUrl() {
@@ -1785,7 +1785,7 @@ export class BaileysStartupService extends ChannelStartupService {
     try {
       return {
         wuid: jid,
-        status: (await this.client.fetchStatus(jid))?.[0]?.status,
+        status: (await this.client.fetchStatus(jid))?.status,
       };
     } catch (error) {
       return {
@@ -2510,13 +2510,7 @@ export class BaileysStartupService extends ChannelStartupService {
         } as any,
         { upload: this.client.waUploadToServer },
       );
-	this.logger.debug(`[prepareMediaMessage] Recebido: ${JSON.stringify({
-  mediatype: mediaMessage.mediatype,
-  fileName: mediaMessage.fileName,
-  mimetype: mediaMessage.mimetype,
-  isUrl: isURL(mediaMessage.media),
-  caption: mediaMessage.caption,
-})}`);
+
       const mediaType = mediaMessage.mediatype + 'Message';
 
       if (mediaMessage.mediatype === 'document' && !mediaMessage.fileName) {
@@ -2597,13 +2591,7 @@ export class BaileysStartupService extends ChannelStartupService {
           throw new Error(`Failed to get video duration: ${error.message}`);
         }
       }
-	if (!isURL(mediaMessage.media)) {
-  this.logger.debug(`[prepareMediaMessage] Base64 (primeiros 100 chars): ${mediaMessage.media?.substring(0, 100)}...`);
-} else {
-  this.logger.debug(`[prepareMediaMessage] URL da mídia: ${mediaMessage.media}`);
-}
-this.logger.debug(`[prepareMediaMessage] prepareMedia keys: ${Object.keys(prepareMedia).join(', ')}`);
-this.logger.debug(`[prepareMediaMessage] mimetype final: ${mimetype}`);
+
       prepareMedia[mediaType].caption = mediaMessage?.caption;
       prepareMedia[mediaType].mimetype = mimetype;
       prepareMedia[mediaType].fileName = mediaMessage.fileName;
