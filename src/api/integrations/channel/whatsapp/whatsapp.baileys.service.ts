@@ -1,4 +1,4 @@
-import { OfferCallDto } from '@api/dto/call.dto';
+
 import {
   ArchiveChatDto,
   BlockUserDto,
@@ -1851,18 +1851,7 @@ export class BaileysStartupService extends ChannelStartupService {
     }
   }
 
-  public async offerCall({ number, isVideo, callDuration }: OfferCallDto) {
-    const jid = this.createJid(number);
-
-    try {
-      const call = await this.client.offerCall(jid, isVideo);
-      setTimeout(() => this.client.terminateCall(call.id, call.to), callDuration * 1000);
-
-      return call;
-    } catch (error) {
-      return error;
-    }
-  }
+  
 
   private async sendMessage(
     sender: string,
