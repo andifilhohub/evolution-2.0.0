@@ -544,6 +544,27 @@ export class ChatwootService {
 
   public async createConversation(instance: InstanceDto, body: any) {
     try {
+      // --- INÍCIO: Tratamento de LID ---
+      const isLid = body.key.remoteJid.includes('@lid') && body.key.senderPn;
+      const remoteJid = isLid ? body.key.senderPn : body.key.remoteJid;
+      const cacheKey = `${instance.instanceName}:createConversation-${remoteJid}`;
+      const lockKey = `${instance.instanceName}:lock:createConversation-${remoteJid}`;
+
+      // Atualiza o contato se o identifier mudou para LID
+      if (body.key.remoteJid.includes('@lid') && body.key.senderPn && body.key.senderPn !== body.key.remoteJid) {
+        const contact = await this.findContact(instance, body.key.remoteJid.split('@')[0]);
+        if (contact && contact.identifier !== body.key.senderPn) {
+          this.logger.verbose(
+            `Identifier needs update: (contact.identifier: ${contact.identifier}, body.key.remoteJid: ${body.key.remoteJid}, body.key.senderPn: ${body.key.senderPn})`,
+          );
+          await this.updateContact(instance, contact.id, {
+            identifier: body.key.senderPn,
+            phone_number: `+${body.key.senderPn.split('@')[0]}`,
+          });
+        }
+      }
+      // --- FIM: Tratamento de LID ---
+
       this.logger.verbose('--- Start createConversation ---');
       this.logger.verbose(`Instance: ${JSON.stringify(instance)}`);
 
@@ -554,7 +575,6 @@ export class ChatwootService {
         return null;
       }
 
-      const cacheKey = `${instance.instanceName}:createConversation-${body.key.remoteJid}`;
       this.logger.verbose(`Cache key: ${cacheKey}`);
 
       if (await this.cache.has(cacheKey)) {
@@ -581,10 +601,10 @@ export class ChatwootService {
         return conversationId;
       }
 
-      const isGroup = body.key.remoteJid.includes('@g.us');
+      const isGroup = remoteJid.includes('@g.us');
       this.logger.verbose(`Is group: ${isGroup}`);
 
-      const chatId = isGroup ? body.key.remoteJid : body.key.remoteJid.split('@')[0];
+      const chatId = isGroup ? remoteJid : remoteJid.split('@')[0];
       this.logger.verbose(`Chat ID: ${chatId}`);
 
       let nameContact: string;
