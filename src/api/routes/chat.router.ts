@@ -46,25 +46,31 @@ export class ChatRouter extends RouterBroker {
     super();
     this.router
       .post(this.routerPath('whatsappNumbers'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<WhatsAppNumberDto>({
-          request: req,
-          schema: whatsappNumberSchema,
-          ClassRef: WhatsAppNumberDto,
-          execute: (instance, data) => chatController.whatsappNumber(instance, data),
-        });
+        try {
+          const response = await this.dataValidate<WhatsAppNumberDto>({
+            request: req,
+            schema: whatsappNumberSchema,
+            ClassRef: WhatsAppNumberDto,
+            execute: (instance, data) => chatController.whatsappNumber(instance, data),
+          });
 
-        return res.status(HttpStatus.OK).json(response);
+          return res.status(HttpStatus.OK).json(response);
+        } catch (error) {
+          console.log(error);
+          return res.status(HttpStatus.BAD_REQUEST).json(error);
+        }
       })
       .post(this.routerPath('markMessageAsRead'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<ReadMessageDto>({
-          request: req,
-          schema: readMessageSchema,
-          ClassRef: ReadMessageDto,
-          execute: (instance, data) => chatController.readMessage(instance, data),
-        });
+        try {
+          const response = await this.dataValidate<ReadMessageDto>({
+            request: req,
+            schema: readMessageSchema,
+            ClassRef: ReadMessageDto,
+            execute: (instance, data) => chatController.readMessage(instance, data),
+          });
 
-        return res.status(HttpStatus.CREATED).json(response);
-      })
+          return res.status(HttpStatus.CREATED).json(response);
+        })
       .post(this.routerPath('archiveChat'), ...guards, async (req, res) => {
         const response = await this.dataValidate<ArchiveChatDto>({
           request: req,

@@ -13,7 +13,8 @@ export class OnWhatsAppDto {
     public readonly exists: boolean,
     public readonly number: string,
     public readonly name?: string,
-  ) {}
+    public readonly lid?: string,
+  ) { }
 }
 
 export class getBase64FromMediaMessageDto {
