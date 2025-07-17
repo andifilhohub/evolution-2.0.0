@@ -70,7 +70,11 @@ export class ChatRouter extends RouterBroker {
           });
 
           return res.status(HttpStatus.CREATED).json(response);
-        })
+        } catch (error) {
+          console.log(error);
+          return res.status(HttpStatus.BAD_REQUEST).json(error);
+        }
+      })
       .post(this.routerPath('archiveChat'), ...guards, async (req, res) => {
         const response = await this.dataValidate<ArchiveChatDto>({
           request: req,
@@ -278,3 +282,4 @@ export class ChatRouter extends RouterBroker {
 
   public readonly router: Router = Router();
 }
+

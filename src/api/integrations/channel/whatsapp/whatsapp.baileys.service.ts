@@ -203,6 +203,12 @@ async function getVideoDuration(input: Buffer | string | Readable): Promise<numb
 
   return Math.round(parseFloat(duration));
 }
+// Tipo auxiliar para organização dos JIDs
+type JidsType = {
+  groups: { number: string; jid: string }[];
+  broadcast: { number: string; jid: string }[];
+  users: { number: string; jid: string; name?: string }[];
+};
 
 export class BaileysStartupService extends ChannelStartupService {
   constructor(
@@ -371,7 +377,7 @@ export class BaileysStartupService extends ChannelStartupService {
       qrcodeTerminal.generate(qr, { small: true }, (qrcode) =>
         this.logger.log(
           `\n{ instance: ${this.instance.name} pairingCode: ${this.instance.qrcode.pairingCode}, qrcodeCount: ${this.instance.qrcode.count} }\n` +
-            qrcode,
+          qrcode,
         ),
       );
 
@@ -975,18 +981,18 @@ export class BaileysStartupService extends ChannelStartupService {
 
         const messagesRepository = new Set(
           chatwootImport.getRepositoryMessagesCache(instance) ??
-            (
-              await this.prismaRepository.message.findMany({
-                select: { key: true },
-                where: { instanceId: this.instanceId },
-              })
-            ).map((message) => {
-              const key = message.key as {
-                id: string;
-              };
+          (
+            await this.prismaRepository.message.findMany({
+              select: { key: true },
+              where: { instanceId: this.instanceId },
+            })
+          ).map((message) => {
+            const key = message.key as {
+              id: string;
+            };
 
-              return key.id;
-            }),
+            return key.id;
+          }),
         );
 
         if (chatwootImport.getRepositoryMessagesCache(instance) === null) {
@@ -1854,14 +1860,14 @@ export class BaileysStartupService extends ChannelStartupService {
   public async offerCall({ number, isVideo, callDuration }: OfferCallDto) {
     const jid = this.createJid(number);
 
-    try {
-      const call = await this.client.offerCall(jid, isVideo);
-      setTimeout(() => this.client.terminateCall(call.id, call.to), callDuration * 1000);
+    // try {
+    //   const call = await this.client.offerCall(jid, isVideo);
+    //   setTimeout(() => this.client.terminateCall(call.id, call.to), callDuration * 1000);
 
-      return call;
-    } catch (error) {
-      return error;
-    }
+    //   return call;
+    // } catch (error) {
+    //   return error;
+    // }
   }
 
   private async sendMessage(
@@ -2510,13 +2516,13 @@ export class BaileysStartupService extends ChannelStartupService {
         } as any,
         { upload: this.client.waUploadToServer },
       );
-	this.logger.debug(`[prepareMediaMessage] Recebido: ${JSON.stringify({
-  mediatype: mediaMessage.mediatype,
-  fileName: mediaMessage.fileName,
-  mimetype: mediaMessage.mimetype,
-  isUrl: isURL(mediaMessage.media),
-  caption: mediaMessage.caption,
-})}`);
+      this.logger.debug(`[prepareMediaMessage] Recebido: ${JSON.stringify({
+        mediatype: mediaMessage.mediatype,
+        fileName: mediaMessage.fileName,
+        mimetype: mediaMessage.mimetype,
+        isUrl: isURL(mediaMessage.media),
+        caption: mediaMessage.caption,
+      })}`);
       const mediaType = mediaMessage.mediatype + 'Message';
 
       if (mediaMessage.mediatype === 'document' && !mediaMessage.fileName) {
@@ -2597,13 +2603,13 @@ export class BaileysStartupService extends ChannelStartupService {
           throw new Error(`Failed to get video duration: ${error.message}`);
         }
       }
-	if (!isURL(mediaMessage.media)) {
-  this.logger.debug(`[prepareMediaMessage] Base64 (primeiros 100 chars): ${mediaMessage.media?.substring(0, 100)}...`);
-} else {
-  this.logger.debug(`[prepareMediaMessage] URL da mídia: ${mediaMessage.media}`);
-}
-this.logger.debug(`[prepareMediaMessage] prepareMedia keys: ${Object.keys(prepareMedia).join(', ')}`);
-this.logger.debug(`[prepareMediaMessage] mimetype final: ${mimetype}`);
+      if (!isURL(mediaMessage.media)) {
+        this.logger.debug(`[prepareMediaMessage] Base64 (primeiros 100 chars): ${mediaMessage.media?.substring(0, 100)}...`);
+      } else {
+        this.logger.debug(`[prepareMediaMessage] URL da mídia: ${mediaMessage.media}`);
+      }
+      this.logger.debug(`[prepareMediaMessage] prepareMedia keys: ${Object.keys(prepareMedia).join(', ')}`);
+      this.logger.debug(`[prepareMediaMessage] mimetype final: ${mimetype}`);
       prepareMedia[mediaType].caption = mediaMessage?.caption;
       prepareMedia[mediaType].mimetype = mimetype;
       prepareMedia[mediaType].fileName = mediaMessage.fileName;
@@ -3381,84 +3387,22 @@ this.logger.debug(`[prepareMediaMessage] mimetype final: ${mimetype}`);
       const keys: proto.IMessageKey[] = [];
       data.readMessages.forEach((read) => {
         if (isJidGroup(read.remoteJid) || isJidUser(read.remoteJid)) {
+          // participant não faz parte do tipo Key, removendo
           keys.push({
             remoteJid: read.remoteJid,
-            fromMe: read.fromMe,
             id: read.id,
+            fromMe: read.fromMe,
           });
         }
       });
+
       await this.client.readMessages(keys);
-      return { message: 'Read messages', read: 'success' };
-    } catch (error) {
-      throw new InternalServerErrorException('Read messages fail', error.toString());
-    }
-  }
 
-  public async getLastMessage(number: string) {
-    const where: any = {
-      key: {
-        remoteJid: number,
-      },
-      instanceId: this.instance.id,
-    };
-
-    const messages = await this.prismaRepository.message.findMany({
-      where,
-      orderBy: {
-        messageTimestamp: 'desc',
-      },
-      take: 1,
-    });
-
-    if (messages.length === 0) {
-      throw new NotFoundException('Messages not found');
-    }
-
-    let lastMessage = messages.pop();
-
-    for (const message of messages) {
-      if (message.messageTimestamp >= lastMessage.messageTimestamp) {
-        lastMessage = message;
-      }
-    }
-
-    return lastMessage as unknown as LastMessage;
-  }
-
-  public async archiveChat(data: ArchiveChatDto) {
-    try {
-      let last_message = data.lastMessage;
-      let number = data.chat;
-
-      if (!last_message && number) {
-        last_message = await this.getLastMessage(number);
-      } else {
-        last_message = data.lastMessage;
-        last_message.messageTimestamp = last_message?.messageTimestamp ?? Date.now();
-        number = last_message?.key?.remoteJid;
-      }
-
-      if (!last_message || Object.keys(last_message).length === 0) {
-        throw new NotFoundException('Last message not found');
-      }
-
-      await this.client.chatModify(
-        {
-          archive: data.archive,
-          lastMessages: [last_message],
-        },
-        this.createJid(number),
-      );
-
-      return {
-        chatId: number,
-        archived: true,
-      };
+      return { read: true };
     } catch (error) {
       throw new InternalServerErrorException({
-        archived: false,
-        message: ['An error occurred while archiving the chat. Open a calling.', error.toString()],
+        read: false,
+        message: ['An error occurred while marking messages as read.', error.toString()],
       });
     }
   }
@@ -3469,7 +3413,11 @@ this.logger.debug(`[prepareMediaMessage] mimetype final: ${mimetype}`);
       let number = data.chat;
 
       if (!last_message && number) {
-        last_message = await this.getLastMessage(number);
+        const msg = await this.getMessage({ remoteJid: number, id: undefined, fromMe: undefined });
+        if (!msg || typeof msg !== 'object' || !('key' in msg)) {
+          throw new NotFoundException('Last message not found or missing key property');
+        }
+        last_message = msg as LastMessage;
       } else {
         last_message = data.lastMessage;
         last_message.messageTimestamp = last_message?.messageTimestamp ?? Date.now();
@@ -4339,3 +4287,4 @@ this.logger.debug(`[prepareMediaMessage] mimetype final: ${mimetype}`);
     return unreadMessages;
   }
 }
+
