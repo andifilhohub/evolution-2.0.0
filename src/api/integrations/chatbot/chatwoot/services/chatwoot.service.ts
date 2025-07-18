@@ -1196,6 +1196,13 @@ export class ChatwootService {
 
   public async receiveWebhook(instance: InstanceDto, body: any) {
     console.log(body);
+    const identifier = body.conversation.meta.sender?.identifier;
+    const phoneNumber = body.conversation.meta.sender?.phone_number?.replace('+', '');
+
+    if (identifier && identifier.endsWith('@lid') && phoneNumber) {
+      this.logger.verbose(`Identifier com @lid: ${body.conversation.meta.sender?.identifier}`);
+      body.conversation.meta.sender.identifier = `${phoneNumber}@s.whatsapp.net`;
+    }
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
