@@ -687,7 +687,7 @@ export class ChatwootService {
           }
         }
       } else {
-        const jid = body.key.remoteJid;
+        const jid = isLid && body?.key?.senderPn ? body.key.senderPn : body.key.remoteJid;
         contact = await this.createContact(
           instance,
           chatId,
